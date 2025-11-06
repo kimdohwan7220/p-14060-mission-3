@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import mission1.domain.Quote;
 import mission1.service.QuoteService;
-import mission1.controller.QuoteHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +16,7 @@ class QuoteHandlerTest {
     @Test
     void 정상_시나리오_테스트() {
         QuoteService service = new QuoteService();
-        QuoteHandler handler = new QuoteHandler(service);
+        QuoteController handler = new QuoteController(service);
 
         Quote q1 = service.registerQuote("현재를 사랑하라.", "작자미상");
         Quote q2 = service.registerQuote("과거에 집착하지 마라.", "홍길동");
@@ -42,7 +41,7 @@ class QuoteHandlerTest {
     @Test
     void 예외_시나리오_테스트() {
         QuoteService service = new QuoteService();
-        QuoteHandler handler = new QuoteHandler(service);
+        QuoteController handler = new QuoteController(service);
 
         assertThatThrownBy(() -> {
             Quote q = service.findQuoteById(999); // 존재하지 않는 ID
