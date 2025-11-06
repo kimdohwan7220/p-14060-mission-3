@@ -3,18 +3,21 @@
 ### 프로젝트 구조 
 - mission1
   - controller
-    - AppController.java       # 앱 실행 컨트롤러
-    - QuoteHandler.java        # 명령어 처리 및 서비스 연결
+    - AppController.java       # 전체 앱 실행
+    - QuoteController.java     # 명령어 처리 + View 연결
+    - SystemController.java    # 헤더/종료 처리
   - domain
     - Quote.java               # 명언 객체 생성
-    - QuoteRepository.java     # 명언 CRUD
+    - QuoteRepository.java     # json 파일 기반 CRUD + 영속성
   - service
-    - QuoteService.java        # 비즈니스 로직 처리
+    - QuoteService.java        # 비즈니스 로직 처리 + 검증
   - utils
-    - QuoteValidator.java      # 명언 유효성 검증
+    - QuoteValidator.java      # ID 존재 여부 검증
   - view
     - InputView.java           # 사용자 입력 처리
     - OutputView.java          # 화면 출력 처리
+  - Main                       # 실행 파일
+
 - test
   - domain
     - QuoteTest.java
@@ -22,7 +25,7 @@
   - service
     - QuoteServiceTest.java
   - controller
-    - QuoteHandlerTest.java
+    - QuoteControllerTest.java
 
 ### ⚙️ 기능 구현 목록
 #### 🧾 입력
