@@ -5,10 +5,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class InputView {
-    private static final Scanner sc = new Scanner(System.in);
+    private static Scanner sc = new Scanner(System.in);
 
-    public static Scanner genScanner(String input) {
-        return new Scanner(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)));
+    public static void setScanner(Scanner newScanner) {
+        sc = newScanner;
+    }
+
+    public static void resetScanner() {
+        sc = new Scanner(System.in);
     }
 
     private static String input() {

@@ -6,12 +6,12 @@ import mission1.utils.QuoteValidator;
 import mission1.view.InputView;
 import mission1.view.OutputView;
 
-public class QuoteHandler {
+public class QuoteController {
 
     private final QuoteService service;
     private final QuoteValidator validator;
 
-    public QuoteHandler(QuoteService service) {
+    public QuoteController(QuoteService service) {
         this.service = service;
         this.validator = new QuoteValidator(service.getRepository());
     }

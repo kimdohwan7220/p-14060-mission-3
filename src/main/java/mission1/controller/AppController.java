@@ -1,31 +1,25 @@
 package mission1.controller;
 
+import mission1.domain.QuoteRepository;
 import mission1.service.QuoteService;
 import mission1.view.InputView;
-import mission1.view.OutputView;
 
 public class AppController {
 
-    private final QuoteService service = new QuoteService();
-    private final QuoteHandler handler = new QuoteHandler(service);
+    private final SystemController systemController = new SystemController();
+    private final QuoteController quoteController =
+            new QuoteController(new QuoteService(new QuoteRepository()));
 
     public void run() {
-        OutputView.printHeader();
+
+        systemController.showHeader();
 
         while (true) {
             String command = InputView.commandInput();
 
-            if (checkExit(command)) break;
+            if (systemController.isExitCommand(command)) break;
 
-            handler.handleCommand(command);
+            quoteController.handleCommand(command);
         }
-    }
-
-    private boolean checkExit(String command) {
-        if ("종료".equals(command)) {
-            OutputView.printExit();
-            return true;
-        }
-        return false;
     }
 }

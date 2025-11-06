@@ -6,8 +6,17 @@ import mission1.domain.QuoteRepository;
 import mission1.utils.QuoteValidator;
 
 public class QuoteService {
-    private final QuoteRepository repository = new QuoteRepository();
-    private final QuoteValidator validator = new QuoteValidator(repository);
+    private final QuoteRepository repository;
+    private final QuoteValidator validator;
+
+    public QuoteService() {
+        this(new QuoteRepository());
+    }
+
+    public QuoteService(QuoteRepository repository) {
+        this.repository = repository;
+        this.validator = new QuoteValidator(repository);
+    }
 
     public Quote registerQuote(String content, String author) {
         return repository.save(content, author);
@@ -17,17 +26,13 @@ public class QuoteService {
         return repository.findAll();
     }
 
+    public Quote findQuoteById(int id) {
+        return repository.findById(id);
+    }
+
     public void deleteQuote(int id) {
         validator.validateQuoteExists(id);
         repository.deleteById(id);
-    }
-
-    public QuoteRepository getRepository() {
-        return repository;
-    }
-
-    public Quote findQuoteById(int id) {
-        return repository.findById(id);
     }
 
     public void updateQuote(int id, String content, String author) {
@@ -37,5 +42,9 @@ public class QuoteService {
 
     public void buildDataJson() {
         repository.buildDataJson();
+    }
+
+    public QuoteRepository getRepository() {
+        return repository;
     }
 }
