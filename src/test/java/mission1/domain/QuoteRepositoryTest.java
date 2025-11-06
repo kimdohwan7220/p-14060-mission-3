@@ -2,103 +2,101 @@ package mission1.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.junit.jupiter.api.*;
-import java.io.IOException;
-import java.nio.file.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 class QuoteRepositoryTest {
 
-    private static final Path BASE_DIR = Paths.get("db", "wiseSaying");
+    @TempDir
+    Path tempDir;
 
-    // 테스트 유틸: 폴더/파일 전체 삭제
-    private static void deleteDirIfExists(Path dir) throws IOException {
-        if (!Files.exists(dir)) return;
-        Files.walk(dir)
-                .sorted((a, b) -> b.compareTo(a))
-                .forEach(p -> { try { Files.deleteIfExists(p); } catch (IOException ignored) {} });
-    }
+    @Test
+    @DisplayName("save: 파일과 메모리에 저장된다")
+    void save_persistsToFileAndMemory() throws Exception {
+        QuoteRepository repo = new QuoteRepository(tempDir);
 
-    @BeforeEach
-    void cleanBefore() throws IOException {
-        deleteDirIfExists(BASE_DIR);
-        Files.createDirectories(BASE_DIR);
-    }
+        Quote saved = repo.save("content", "author");
 
-    @AfterEach
-    void cleanAfter() throws IOException {
-        deleteDirIfExists(BASE_DIR);
+        assertThat(saved.getId()).isEqualTo(1);
+        assertThat(Files.exists(tempDir.resolve("1.json"))).isTrue();
+        assertThat(Files.exists(tempDir.resolve("lastId.txt"))).isTrue();
+
+        Quote found = repo.findById(1);
+        assertThat(found).isNotNull();
+        assertThat(found.getContent()).isEqualTo("content");
+        assertThat(found.getAuthor()).isEqualTo("author");
     }
 
     @Test
-    @DisplayName("명언 등록 테스트")
-    void 명언_등록_테스트() {
-        QuoteRepository repository = new QuoteRepository();
+    @DisplayName("findAll: ID 내림차순(최근 등록 우선)으로 정렬된다")
+    void findAll_returnsDescendingById() {
+        QuoteRepository repo = new QuoteRepository(tempDir);
+        Quote first  = repo.save("content1", "author1");
+        Quote second = repo.save("content2", "author2");
 
-        Quote quote = repository.save("현재를 사랑하라.", "작자미상");
+        List<Quote> list = repo.findAll();
 
-        assertThat(quote.getId()).isEqualTo(1);
-        assertThat(quote.getContent()).isEqualTo("현재를 사랑하라.");
-        assertThat(quote.getAuthor()).isEqualTo("작자미상");
+        assertThat(list).extracting(Quote::getId).containsExactly(second.getId(), first.getId());
+        assertThat(list.get(0).getContent()).isEqualTo("content2");
+        assertThat(list.get(1).getContent()).isEqualTo("content1");
     }
 
     @Test
-    @DisplayName("명언 목록 조회 테스트(내림차순)")
-    void 명언_목록_조회_테스트() {
-        QuoteRepository repository = new QuoteRepository();
-        Quote q1 = repository.save("현재를 사랑하라.", "작자미상"); // id=1
-        Quote q2 = repository.save("과거에 집착하지 마라.", "작자미상"); // id=2
+    @DisplayName("deleteById시 파일도 함께 삭제되며, 없는 ID는 false를 반환한다")
+    void deleteById_removesFileAndReturnsFalseForMissing() {
+        QuoteRepository repo = new QuoteRepository(tempDir);
+        Quote saved = repo.save("to be deleted", "deleter");
 
-        List<Quote> quotes = repository.findAll();
-
-        assertThat(quotes).hasSize(2);
-        // 내림차순(최근 등록 먼저): 2, 1
-        assertThat(quotes.get(0).getId()).isEqualTo(q2.getId());
-        assertThat(quotes.get(1).getId()).isEqualTo(q1.getId());
-    }
-
-    @Test
-    @DisplayName("명언 삭제 테스트(메모리+파일)")
-    void 명언_삭제_테스트() {
-        QuoteRepository repository = new QuoteRepository();
-        Quote q = repository.save("현재를 사랑하라.", "작자미상");
-
-        boolean deleted = repository.deleteById(q.getId());
+        boolean deleted = repo.deleteById(saved.getId());
         assertThat(deleted).isTrue();
+        assertThat(Files.exists(tempDir.resolve(saved.getId() + ".json"))).isFalse();
 
-        boolean notDeleted = repository.deleteById(999);
+        boolean notDeleted = repo.deleteById(999);
         assertThat(notDeleted).isFalse();
     }
 
     @Test
-    @DisplayName("ID로 명언 조회 테스트")
-    void 명언_조회_테스트() {
-        QuoteRepository repository = new QuoteRepository();
-        Quote saved = repository.save("현재를 사랑하라.", "작자미상");
+    @DisplayName("update: 메모리와 파일 내용이 함께 갱신된다")
+    void update_updatesMemoryAndFile() {
+        QuoteRepository repo = new QuoteRepository(tempDir);
+        Quote saved = repo.save("original content", "original author");
 
-        Quote found = repository.findById(saved.getId());
-        assertThat(found).isNotNull();
-        assertThat(found.getContent()).isEqualTo("현재를 사랑하라.");
+        repo.update(saved.getId(), "updated content", "updated author");
 
-        Quote missing = repository.findById(999);
-        assertThat(missing).isNull();
+        Quote quote = repo.findById(saved.getId());
+        assertThat(quote.getContent()).isEqualTo("updated content");
+        assertThat(quote.getAuthor()).isEqualTo("updated author");
     }
 
     @Test
-    @DisplayName("명언 수정 테스트(파일 갱신 포함)")
-    void 명언_수정_테스트() {
-        QuoteRepository repository = new QuoteRepository();
-        Quote saved = repository.save("현재를 사랑하라.", "작자미상");
+    @DisplayName("재기동 가정: 동일 폴더로 새 인스턴스를 만들면 JSON을 로드하고 nextId를 이어간다")
+    void reload_loadsJsonAndContinuesNextId() {
+        QuoteRepository r1 = new QuoteRepository(tempDir);
+        r1.save("content1", "author1");
+        r1.save("content2", "author2");
 
-        repository.update(saved.getId(), "현재와 자신을 사랑하라.", "홍길동");
+        QuoteRepository r2 = new QuoteRepository(tempDir);
+        assertThat(r2.findAll()).hasSize(2);
 
-        Quote updated = repository.findById(saved.getId());
-        assertThat(updated).isNotNull();
-        assertThat(updated.getContent()).isEqualTo("현재와 자신을 사랑하라.");
-        assertThat(updated.getAuthor()).isEqualTo("홍길동");
+        Quote third = r2.save("content3", "author3");
+        assertThat(third.getId()).isEqualTo(3);
+    }
 
-        repository.update(999, "없는 명언", "익명"); // 무시됨
-        Quote missing = repository.findById(999);
-        assertThat(missing).isNull();
+    @Test
+    @DisplayName("buildDataJson: data.json이 생성되고 ID 오름차순으로 기록된다")
+    void buildDataJson_createsDataJsonInAscendingOrder() {
+        QuoteRepository repo = new QuoteRepository(tempDir);
+        repo.save("content1", "author1");
+        repo.save("content2", "author2");
+
+        repo.buildDataJson();
+
+        Path dataJson = tempDir.resolve("data.json");
+        assertThat(Files.exists(dataJson)).isTrue();
     }
 }

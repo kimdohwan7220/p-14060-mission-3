@@ -1,99 +1,55 @@
 package mission1.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 
 import mission1.domain.Quote;
+import mission1.domain.QuoteRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.util.List;
 
 class QuoteServiceTest {
 
-    @DisplayName("명언 등록 테스트")
+    @TempDir Path tempDir;
+
     @Test
-    void 명언_등록_테스트() {
-        QuoteService service = new QuoteService();
+    @DisplayName("등록,조회,수정,삭제 흐름이 정상 동작한다")
+    void service_flow_ok() {
+        QuoteService service = new QuoteService(new QuoteRepository(tempDir));
 
-        Quote quote = service.registerQuote("현재를 사랑하라.", "작자미상");
+        Quote q1 = service.registerQuote("content1", "author1");
+        Quote q2 = service.registerQuote("content2", "author2");
 
-        assertThat(quote.getId()).isEqualTo(1);
-        assertThat(quote.getContent()).isEqualTo("현재를 사랑하라.");
-        assertThat(quote.getAuthor()).isEqualTo("작자미상");
+        List<Quote> all = service.findAllQuotes();
+        assertThat(all).extracting(Quote::getId).containsExactly(q2.getId(), q1.getId());
+
+        service.updateQuote(q1.getId(), "updated content1", "updated author1");
+        Quote updated = service.findQuoteById(q1.getId());
+        assertThat(updated.getContent()).isEqualTo("updated content1");
+        assertThat(updated.getAuthor()).isEqualTo("updated author1");
+
+        service.deleteQuote(q2.getId());
+        assertThat(service.findAllQuotes()).hasSize(1);
     }
 
-    @DisplayName("전체 명언 조회 테스트")
     @Test
-    void 명언_목록_조회_테스트() {
-        QuoteService service = new QuoteService();
+    @DisplayName("없는 ID 조회/수정/삭제는 IllegalArgumentException")
+    void throws_for_missing_id() {
+        QuoteService service = new QuoteService(new QuoteRepository(tempDir));
 
-        service.registerQuote("현재를 사랑하라.", "작자미상");
-        service.registerQuote("과거에 집착하지 마라.", "작자미상");
+        assertThatThrownBy(() -> service.findQuoteById(999))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
 
-        List<Quote> quotes = service.findAllQuotes();
-
-        assertThat(quotes).hasSize(2);
-        assertThat(quotes.get(0).getContent()).isEqualTo("현재를 사랑하라.");
-        assertThat(quotes.get(1).getContent()).isEqualTo("과거에 집착하지 마라.");
-    }
-
-    @DisplayName("명언 삭제 테스트 - 존재하는 ID")
-    @Test
-    void 명언_삭제_테스트_존재_ID() {
-        QuoteService service = new QuoteService();
-
-        service.registerQuote("현재를 사랑하라.", "작자미상");
-
-        service.deleteQuote(1);
-
-        assertThat(service.findAllQuotes()).isEmpty();
-    }
-
-    @DisplayName("명언 삭제 테스트 - 존재하지 않는 ID")
-    @Test
-    void 명언_삭제_테스트_미존재_ID() {
-        QuoteService service = new QuoteService();
+        assertThatThrownBy(() -> service.updateQuote(999, "x", "y"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
 
         assertThatThrownBy(() -> service.deleteQuote(999))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("999번 명언은 존재하지 않습니다.");
-    }
-
-    @DisplayName("명언 수정 테스트 - 존재하는 ID")
-    @Test
-    void 명언_수정_테스트_존재_ID() {
-        QuoteService service = new QuoteService();
-
-        service.registerQuote("현재를 사랑하라.", "작자미상");
-        service.updateQuote(1, "현재와 자신을 사랑하라.", "홍길동");
-
-        Quote updated = service.findQuoteById(1);
-        assertThat(updated.getContent()).isEqualTo("현재와 자신을 사랑하라.");
-        assertThat(updated.getAuthor()).isEqualTo("홍길동");
-    }
-
-    @DisplayName("명언 수정 테스트 - 존재하지 않는 ID")
-    @Test
-    void 명언_수정_테스트_미존재_ID() {
-        QuoteService service = new QuoteService();
-
-        assertThatThrownBy(() -> service.updateQuote(999, "내용", "작자"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
-    }
-
-    @DisplayName("ID로 명언 조회 테스트")
-    @Test
-    void 명언_조회_테스트() {
-        QuoteService service = new QuoteService();
-        service.registerQuote("현재를 사랑하라.", "작자미상");
-
-        Quote quote = service.findQuoteById(1);
-        assertThat(quote).isNotNull();
-        assertThat(quote.getContent()).isEqualTo("현재를 사랑하라.");
-
-        Quote missingQuote = service.findQuoteById(999);
-        assertThat(missingQuote).isNull();
     }
 }
