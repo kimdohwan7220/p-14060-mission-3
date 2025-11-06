@@ -27,6 +27,7 @@ public class QuoteService {
     }
 
     public Quote findQuoteById(int id) {
+        validator.validateQuoteExists(id);
         return repository.findById(id);
     }
 
