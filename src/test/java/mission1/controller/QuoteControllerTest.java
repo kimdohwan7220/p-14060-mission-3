@@ -1,60 +1,97 @@
 package mission1.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import mission1.domain.Quote;
+import mission1.domain.QuoteRepository;
 import mission1.service.QuoteService;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import mission1.view.InputView;
 
-import java.util.List;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 
-class QuoteHandlerTest {
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Scanner;
 
-    @DisplayName("정상 시나리오: 명언 전체 흐름 테스트")
-    @Test
-    void 정상_시나리오_테스트() {
-        QuoteService service = new QuoteService();
-        QuoteController handler = new QuoteController(service);
+import static org.assertj.core.api.Assertions.assertThat;
 
-        Quote q1 = service.registerQuote("현재를 사랑하라.", "작자미상");
-        Quote q2 = service.registerQuote("과거에 집착하지 마라.", "홍길동");
+class QuoteControllerTest {
 
-        List<Quote> allQuotes = service.findAllQuotes();
-        assertThat(allQuotes).hasSize(2);
-        assertThat(allQuotes.get(0).getContent()).isEqualTo("현재를 사랑하라.");
-        assertThat(allQuotes.get(1).getAuthor()).isEqualTo("홍길동");
+    @TempDir
+    Path tempDir;
 
-        service.updateQuote(1, "현재와 자신을 사랑하라.", "홍길동");
-        Quote updated = service.findQuoteById(1);
-        assertThat(updated.getContent()).isEqualTo("현재와 자신을 사랑하라.");
-        assertThat(updated.getAuthor()).isEqualTo("홍길동");
+    private PrintStream consoleOut;
+    private ByteArrayOutputStream testOutContent;
 
-        service.deleteQuote(2);
-        allQuotes = service.findAllQuotes();
-        assertThat(allQuotes).hasSize(1);
-        assertThat(allQuotes.get(0).getId()).isEqualTo(1);
+    @BeforeEach
+    void setUp() {
+        consoleOut = System.out;
+        testOutContent = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(testOutContent));
     }
 
-    @DisplayName("예외 시나리오: 존재하지 않는 ID 처리 테스트")
+    @AfterEach
+    void tearDown() {
+        System.setOut(consoleOut);
+        InputView.resetScanner();
+    }
+
+    private String output() {
+        return testOutContent.toString();
+    }
+
+    private QuoteController controllerWithTempRepo() {
+        QuoteService service = new QuoteService(new QuoteRepository(tempDir));
+        return new QuoteController(service);
+    }
+
     @Test
-    void 예외_시나리오_테스트() {
-        QuoteService service = new QuoteService();
-        QuoteController handler = new QuoteController(service);
+    @DisplayName("통합: 등록 → 수정 → 삭제 → 목록 (입출력 포함 풀 시나리오)")
+    void 통합_등록_수정_삭제_목록() {
+        QuoteController controller = controllerWithTempRepo();
 
-        assertThatThrownBy(() -> {
-            Quote q = service.findQuoteById(999); // 존재하지 않는 ID
-            if (q == null) throw new IllegalArgumentException("999번 명언은 존재하지 않습니다.");
-        }).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
+        // 등록(id=1)
+        InputView.setScanner(new Scanner("content1\nauthor1\n"));
+        controller.handleCommand("등록");
 
-        assertThatThrownBy(() -> service.deleteQuote(999))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
+        // 등록(id=2)
+        InputView.setScanner(new Scanner("content2\nauthor2\n"));
+        controller.handleCommand("등록");
 
-        assertThatThrownBy(() -> service.updateQuote(999, "내용", "작자"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("999번 명언은 존재하지 않습니다.");
+        // 수정(id=1)
+        InputView.setScanner(new Scanner("new content\nnew author\n"));
+        controller.handleCommand("수정?id=1");
+
+        // 삭제(id=2)
+        controller.handleCommand("삭제?id=2");
+
+        controller.handleCommand("목록");
+
+        String out = output();
+        assertThat(out)
+                .contains("1번 명언이 등록되었습니다.")
+                .contains("2번 명언이 등록되었습니다.")
+
+                .contains("명언(기존) : content1")
+                .contains("작가(기존) : author1")
+
+                .contains("1번 명언이 수정되었습니다.")
+
+                .contains("2번 명언이 삭제되었습니다.")
+                .contains("번호 / 작가 / 명언")
+                .contains("1 / new author / new content")
+                .doesNotContain("2 /");
+    }
+
+    @Test
+    @DisplayName("에러: 존재하지 않는 ID에 대한 수정/삭제는 오류 메시지 출력")
+    void 에러_존재하지않는_ID_오류메시지() {
+        QuoteController controller = controllerWithTempRepo();
+
+        controller.handleCommand("수정?id=999");
+        controller.handleCommand("삭제?id=999");
+
+        assertThat(output())
+                .contains("999번 명언은 존재하지 않습니다.");
     }
 }
